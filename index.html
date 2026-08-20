@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>ডাঃ শাফিউল আজম - ডক্টর প্যানেল | আদর্শ ডায়াগনস্টিক সেন্টার</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --primary-color: #0d8a72;
+            --primary-hover: #0a6c59;
+            --danger-color: #e74c3c;
+            --info-color: #0275d8;
+            --warning-color: #f59e0b;
+            --success-color: #10b981;
+            --bg-color: #f4f7f6;
+            --card-shadow: 0 4px 12px rgba(0,0,0,0.05);
+            --border-radius: 12px;
+        }
+
+        * { box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; padding: 0; }
+        body { background-color: var(--bg-color); color: #333; padding-bottom: 30px; }
+        
+        .app-header { background-color: #fff; padding: 15px 20px; text-align: center; box-shadow: 0 2px 5px rgba(0,0,0,0.05); position: sticky; top: 0; z-index: 100; }
+        .app-title { color: var(--primary-color); font-size: 22px; font-weight: bold; }
+        .doctor-badge { font-size: 14px; font-weight: 700; color: #0d8a72; letter-spacing: 0.5px; margin-top: 4px; background: #e6f4f1; display: inline-block; padding: 4px 12px; border-radius: 20px; }
+
+        .container { max-width: 950px; margin: 20px auto; padding: 0 15px; }
+
+        /* Dashboard Counters */
+        .summary-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 20px; }
+        .summary-card { background: #fff; padding: 14px; border-radius: var(--border-radius); box-shadow: var(--card-shadow); text-align: center; border-bottom: 4px solid var(--primary-color); }
+        .summary-card.visited-card { border-bottom-color: var(--success-color); }
+        .summary-card.waiting-card { border-bottom-color: var(--warning-color); }
+        .summary-num { font-size: 22px; font-weight: bold; margin-top: 4px; }
+        .summary-label { font-size: 12px; color: #666; font-weight: bold; }
+
+        .card { background: #fff; padding: 20px; border-radius: var(--border-radius); box-shadow: var(--card-shadow); margin-bottom: 20px; }
+        .card-title { font-size: 16px; font-weight: bold; margin-bottom: 15px; display: flex; align-items: center; justify-content: space-between; color: var(--primary-color); }
+
+        .filter-grid { display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: flex-end; }
+        .form-group { display: flex; flex-direction: column; gap: 6px; }
+        .form-group label { font-size: 14px; font-weight: bold; color: #444; }
+        .input-control { padding: 10px 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 14px; outline: none; width: 100%; background: #fff; cursor: pointer; }
+        
+        .btn-report { background: var(--info-color); color: white; border: none; padding: 10px 15px; border-radius: 8px; font-weight: bold; cursor: pointer; display: flex; align-items: center; gap: 8px; height: 42px; white-space: nowrap; }
+
+        .table-responsive { overflow-x: auto; }
+        .data-table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 13px; min-width: 550px; }
+        .data-table th { background: #f8f9fa; padding: 10px; text-align: center; color: #555; font-weight: bold; border-bottom: 2px solid #ddd; }
+        .data-table td { padding: 10px; text-align: center; border-bottom: 1px solid #eee; }
+        
+        /* Specific Styles for Paid / Special / Done Status */
+        .row-special { background-color: #fffbeb !important; }
+        .row-visited { background-color: #f0fdf4 !important; color: #166534; }
+        .tick-badge { color: var(--success-color); font-size: 16px; margin-left: 4px; }
+        .unpaid-badge { color: var(--danger-color); font-size: 11px; font-weight: bold; }
+        
+        .btn-status-toggle { border: none; background: #e2e8f0; color: #334155; padding: 6px 10px; border-radius: 6px; font-size: 11px; font-weight: bold; cursor: pointer; transition: 0.2s; }
+        .btn-status-toggle.active { background: var(--success-color); color: white; }
+
+        .empty-msg { text-align: center; color: #888; padding: 20px; font-style: italic; }
+        .loading-badge { font-size: 12px; font-weight: 600; color: #888; display: block; margin-top: 4px; }
+
+        .app-footer { text-align: center; padding: 15px; font-size: 13px; font-weight: 600; color: #64748b; margin-top: 10px; }
+        
+        @media (max-width:768px) {
+            .filter-grid { grid-template-columns: 1fr; }
+            .summary-grid { grid-template-columns: 1fr 1fr 1fr; }
+        }
+    </style>
+</head>
+<body>
+
+    <header class="app-header">
+        <div class="app-title"><i class="fa-solid fa-hospital"></i> আদর্শ ডায়াগনস্টিক সেন্টার</div>
+        <div class="doctor-badge"><i class="fa-solid fa-user-doctor"></i> ডাঃ শাফিউল আজম - ডক্টর প্যানেল</div>
+        <span id="online-status" class="loading-badge"><i class="fa-solid fa-spinner fa-spin"></i> সংযোগ পরীক্ষা করা হচ্ছে...</span>
+    </header>
+
+    <div class="container">
+        <!-- Live Patient Counter Summary -->
+        <div class="summary-grid">
+            <div class="summary-card">
+                <div class="summary-label">মোট সিরিয়াল</div>
+                <div class="summary-num" id="cnt-total" style="color: var(--primary-color);">0</div>
+            </div>
+            <div class="summary-card visited-card">
+                <div class="summary-label">দেখা শেষ / ফি প্রদত্ত</div>
+                <div class="summary-num" id="cnt-visited" style="color: var(--success-color);">0</div>
+            </div>
+            <div class="summary-card waiting-card">
+                <div class="summary-label">অপেক্ষমাণ</div>
+                <div class="summary-num" id="cnt-waiting" style="color: var(--warning-color);">0</div>
+            </div>
+        </div>
+
+        <!-- Filter Card -->
+        <div class="card">
+            <div class="card-title">
+                <span><i class="fa-solid fa-calendar-day"></i> তারিখ অনুযায়ী সিরিয়াল দেখুন</span>
+            </div>
+            <div class="filter-grid">
+                <div class="form-group">
+                    <label id="filter-date-label">তারিখ নির্বাচন করুন</label>
+                    <input type="date" id="filter-date" class="input-control" onclick="this.showPicker()">
+                </div>
+                <button type="button" class="btn-report" id="btn-report-print" onclick="printReportPDF()"><i class="fa-solid fa-print"></i> প্রিন্ট / পিডিএফ</button>
+            </div>
+        </div>
+
+        <!-- Serial Table Card -->
+        <div class="card">
+            <div class="card-title">
+                <span><i class="fa-solid fa-list-check"></i> রোগীদের তালিকা ও অবস্থা</span>
+            </div>
+            <div class="table-responsive">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>সিরিয়াল</th>
+                            <th>সময়/স্লট</th>
+                            <th>রোগীর নাম</th>
+                            <th>গ্রাম</th>
+                            <th>ফি স্ট্যাটাস</th>
+                            <th>ডাক্তার দেখা</th>
+                        </tr>
+                    </thead>
+                    <tbody id="serial-list"></tbody>
+                </table>
+                <div id="empty-message" class="empty-msg" style="display: none;">উক্ত তারিখে কোনো সিরিয়াল পাওয়া যায়নি।</div>
+            </div>
+        </div>
+    </div>
+
+    <footer class="app-footer">
+        Developed by Shipon
+    </footer>
+
+    <!-- Firebase SDK -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+        import { getFirestore, collection, onSnapshot, doc, updateDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyCU2xBcj8W1NXG7_7EO9CC33yAMtRQ9u5Q",
+            authDomain: "shipon-6e337.firebaseapp.com",
+            projectId: "shipon-6e337",
+            storageBucket: "shipon-6e337.firebasestorage.app",
+            messagingSenderId: "680199241257",
+            appId: "1:680199241257:web:fb2b2faae39cde18582638",
+            measurementId: "G-G07ZGZTY0Q"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        let serials = [];
+        const todayStr = new Date().toISOString().split('T')[0];
+        document.getElementById('filter-date').value = todayStr;
+
+        window.formatDateBD = function(dateStr) {
+            if (!dateStr) return '';
+            const parts = dateStr.split('-');
+            return parts.length === 3 ? `${parts[2]}-${parts[1]}-${parts[0]}` : dateStr;
+        };
+
+        function format12Hour(hour24) {
+            let h = hour24 % 12;
+            if (h === 0) h = 12;
+            const ampm = hour24 >= 12 ? 'PM' : 'AM';
+            return `${String(h).padStart(2, '0')}:00 ${ampm}`;
+        }
+
+        function getShaifulSlot(n){
+            n = parseInt(n, 10); 
+            if (!Number.isFinite(n) || n < 1) return null;
+            const block = Math.floor((n - 1) / 10);
+            const startHour = 8 + block;
+            const endHour = startHour + 1;
+            const special = block === 0 ? (n <= 3 || n >= 9) : (n % 10 === 9 || n % 10 === 0);
+            
+            return {
+                special,
+                time: `${format12Hour(startHour)} - ${format12Hour(endHour)}`
+            };
+        }
+
+        onSnapshot(collection(db, "diagnostic_serials"), (snapshot) => {
+            serials = [];
+            snapshot.forEach((doc) => {
+                const data = doc.data();
+                if (data.doctor && data.doctor.includes("শাফিউল আজম")) {
+                    serials.push({ id: doc.id, ...data });
+                }
+            });
+            serials.sort((a, b) => (parseInt(a.serialNo, 10) || 0) - (parseInt(b.serialNo, 10) || 0));
+            updateInternetStatus();
+            renderTable();
+        });
+
+        window.updateInternetStatus = function() {
+            const status = document.getElementById('online-status');
+            if (navigator.onLine) {
+                status.innerHTML = '<i class="fa-solid fa-circle" style="color:#16a34a"></i> লাইভ আপডেট সক্রিয়';
+            } else {
+                status.innerHTML = '<i class="fa-solid fa-circle" style="color:#dc2626"></i> ইন্টারনেট সংযোগ নেই';
+            }
+        };
+
+        window.addEventListener('online', updateInternetStatus);
+        window.addEventListener('offline', updateInternetStatus);
+
+        // ডাক্তার দ্বারা রোগীর স্ট্যাটাস পরিবর্তনের ফাংশন
+        window.toggleVisitedStatus = async function(id, currentStatus) {
+            if (!navigator.onLine) return;
+            try {
+                await updateDoc(doc(db, "diagnostic_serials", id), {
+                    visited: !currentStatus
+                });
+            } catch (error) {
+                console.error("Status update error:", error);
+            }
+        };
+
+        window.renderTable = function() {
+            const tbody = document.getElementById('serial-list');
+            const emptyMsg = document.getElementById('empty-message');
+            const filterDate = document.getElementById('filter-date').value;
+
+            tbody.innerHTML = '';
+            let total = 0, visited = 0, waiting = 0;
+
+            serials.forEach(item => {
+                if (!filterDate || item.date === filterDate) {
+                    total++;
+                    const tr = document.createElement('tr');
+                    const num = parseInt(item.serialNo, 10);
+                    const slotInfo = getShaifulSlot(num);
+                    
+                    const isPaid = Boolean(item.fee && item.fee.trim() !== "");
+                    const isVisited = Boolean(item.visited);
+
+                    if (isVisited) {
+                        visited++;
+                        tr.classList.add('row-visited');
+                    } else {
+                        waiting++;
+                        if (item.isSpecial || slotInfo?.special) {
+                            tr.classList.add('row-special');
+                        }
+                    }
+
+                    // ফি এন্ট্রি দিলে এডমিন থেকে টিক চিহ্ন উঠবে
+                    const feeDisplay = isPaid 
+                        ? `<span style="color:#10b981; font-weight:bold;">${item.fee} ৳ <i class="fa-solid fa-circle-check tick-badge" title="ফি জমা হয়েছে"></i></span>` 
+                        : `<span class="unpaid-badge"><i class="fa-solid fa-clock"></i> বাকি</span>`;
+
+                    // ডাক্তার নিজ হাতে ক্লিক করে দেখা শেষ চিহ্নিত করতে পারবেন
+                    const doctorActionBtn = `
+                        <button type="button" class="btn-status-toggle ${isVisited ? 'active' : ''}" onclick="toggleVisitedStatus('${item.id}', ${isVisited})">
+                            <i class="fa-solid ${isVisited ? 'fa-check-double' : 'fa-check'}"></i> ${isVisited ? 'দেখা শেষ' : 'দেখা বাকি'}
+                        </button>`;
+
+                    tr.innerHTML = `
+                        <td><b>${item.serialNo}</b></td>
+                        <td><span style="background: #e0f2fe; color: #0369a1; padding: 2px 6px; border-radius: 4px; font-weight: bold; font-size: 11px;">${item.timeSlot || slotInfo?.time || '-'}</span></td>
+                        <td style="font-weight: bold; color: #333;">${item.pname} ${item.patientType ? `<small>(${item.patientType})</small>` : ''}</td>
+                        <td>${item.village}</td>
+                        <td>${feeDisplay}</td>
+                        <td>${doctorActionBtn}</td>
+                    `;
+                    tbody.appendChild(tr);
+                }
+            });
+
+            // ড্যাশবোর্ড আপডেট
+            document.getElementById('cnt-total').innerText = total;
+            document.getElementById('cnt-visited').innerText = visited;
+            document.getElementById('cnt-waiting').innerText = waiting;
+
+            emptyMsg.style.display = total === 0 ? 'block' : 'none';
+        };
+
+        document.getElementById('filter-date').addEventListener('change', renderTable);
+
+        // PDF Print
+        window.printReportPDF = function() {
+            const filterDate = document.getElementById('filter-date').value;
+            let filtered = serials.filter(item => !filterDate || item.date === filterDate);
+            
+            if(filtered.length === 0){ alert('প্রিন্ট করার মতো কোনো ডাটা পাওয়া যায়নি!'); return; }
+
+            let printWindow = window.open('', '_blank');
+            if(!printWindow){ alert('পপ-আপ ব্লক করা হয়েছে!'); return; }
+
+            const rows = filtered.map(item => {
+                const slot = getShaifulSlot(parseInt(item.serialNo, 10));
+                const statusTxt = item.visited ? 'দেখা শেষ' : (item.fee ? 'ফি পরিশোধিত' : 'অপেক্ষমাণ');
+                return `<tr>
+                    <td><b>${item.serialNo}</b></td>
+                    <td>${item.timeSlot || slot?.time || ''}</td>
+                    <td><b>${item.pname}</b></td>
+                    <td>${item.village || ''}</td>
+                    <td>${item.fee || 'বাকি'}</td>
+                    <td>${statusTxt}</td>
+                </tr>`;
+            }).join('');
+
+            printWindow.document.write(`
+                <!DOCTYPE html>
+                <html lang="bn">
+                <head>
+                    <meta charset="UTF-8">
+                    <title>রোগীর রিপোর্ট - ডাঃ শাফিউল আজম</title>
+                    <style>
+                        body { font-family: "Segoe UI", sans-serif; padding: 10mm; }
+                        .header { text-align: center; border-bottom: 2px solid #000; padding-bottom: 8px; margin-bottom: 12px; }
+                        .info { display: flex; justify-content: space-between; font-weight: bold; margin-bottom: 10px; }
+                        table { width: 100%; border-collapse: collapse; font-size: 12px; }
+                        th, td { border: 1px solid #000; padding: 6px; text-align: center; }
+                        th { background: #f2f2f2; }
+                    </style>
+                </head>
+                <body>
+                    <div class="header">
+                        <h2>আদর্শ ডায়াগনস্টিক সেন্টার</h2>
+                        <p>হাসপাতাল গেট, ধুনট, বগুড়া</p>
+                    </div>
+                    <div class="info">
+                        <span>ডাক্তার: ডাঃ শাফিউল আজম</span>
+                        <span>তারিখ: ${formatDateBD(filterDate) || 'সকল সময়'}</span>
+                    </div>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>সিরিয়াল</th>
+                                <th>সময়</th>
+                                <th>রোগীর নাম</th>
+                                <th>গ্রাম</th>
+                                <th>ফি</th>
+                                <th>অবস্থা</th>
+                            </tr>
+                        </thead>
+                        <tbody>${rows}</tbody>
+                    </table>
+                </body>
+                </html>
+            `);
+            printWindow.document.close();
+            printWindow.focus();
+            setTimeout(() => printWindow.print(), 500);
+        };
+    </script>
+</body>
+</html>
