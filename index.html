@@ -277,7 +277,7 @@
                         <td><span style="background: #e0f2fe; color: #0369a1; padding: 2px 6px; border-radius: 4px; font-weight: bold; font-size: 11px;">${item.timeSlot || slotInfo?.time || '-'}</span></td>
                         <td style="font-weight: bold; color: #333;">${item.pname} ${item.patientType ? `<small>(${item.patientType})</small>` : ''}</td>
                         <td>${item.village}</td>
-                        <td>${item.staffName || item.addedBy || item.createdBy || '-'}</td>
+                        <td>${item.operator || '-'}</td>
                         <td>${feeDisplay}</td>
                         <td>${doctorActionBtn}</td>
                     `;
@@ -318,6 +318,17 @@
                 </tr>`;
             }).join('');
 
+            // যত টাকার ফি এন্ট্রি হয়েছে তার মোট যোগফল
+            const totalFee = filtered.reduce((sum, item) => {
+                const feeNum = parseFloat(item.fee);
+                return sum + (Number.isFinite(feeNum) ? feeNum : 0);
+            }, 0);
+            const totalRow = `<tr style="font-weight:bold; background:#f2f2f2;">
+                <td colspan="4" style="text-align:right;">সর্বমোট ফি</td>
+                <td>${totalFee} ৳</td>
+                <td></td>
+            </tr>`;
+
             printWindow.document.write(`
                 <!DOCTYPE html>
                 <html lang="bn">
@@ -353,7 +364,7 @@
                                 <th>অবস্থা</th>
                             </tr>
                         </thead>
-                        <tbody>${rows}</tbody>
+                        <tbody>${rows}${totalRow}</tbody>
                     </table>
                 </body>
                 </html>
