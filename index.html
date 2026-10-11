@@ -253,8 +253,14 @@
         });
 
         let serials = [];
-        const todayStr = new Date().toISOString().split('T')[0];
+        function localTodayStr() {
+            const now = new Date();
+            return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+        }
+        const todayStr = localTodayStr();
         document.getElementById('filter-date').value = todayStr;
+        // যতক্ষণ ডাক্তার নিজে অন্য তারিখ না বাছেন, মাঝরাত পেরোলে তারিখ নিজে থেকে নতুন দিনে চলে যাবে
+        let autoFilterDate = todayStr;
 
         window.formatDateBD = function(dateStr) {
             if (!dateStr) return '';
@@ -433,7 +439,18 @@
             emptyMsg.style.display = total === 0 ? 'block' : 'none';
         };
 
-        document.getElementById('filter-date').addEventListener('change', function(){ listenSerialsForDate(this.value); });
+        document.getElementById('filter-date').addEventListener('change', function(){
+            autoFilterDate = (this.value === localTodayStr()) ? this.value : null;
+            listenSerialsForDate(this.value);
+        });
+        setInterval(function() {
+            const today = localTodayStr();
+            if (autoFilterDate && autoFilterDate !== today) {
+                document.getElementById('filter-date').value = today;
+                autoFilterDate = today;
+                listenSerialsForDate(today);
+            }
+        }, 60000);
 
         // PDF Print
         window.printReportPDF = function() {
