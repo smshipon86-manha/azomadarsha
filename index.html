@@ -64,6 +64,10 @@
         
         .btn-status-toggle { border: none; background: #e2e8f0; color: #334155; padding: 6px 10px; border-radius: 6px; font-size: 11px; font-weight: bold; cursor: pointer; transition: 0.2s; }
         .btn-status-toggle.active { background: var(--success-color); color: white; }
+        .rpt-badge-pending { display:inline-block; background:#fef3c7; color:#b45309; border:1px solid #f59e0b; padding:3px 8px; border-radius:6px; font-size:11px; font-weight:bold; margin-bottom:5px; }
+        .rpt-badge-seen { display:inline-block; background:#dcfce7; color:#15803d; padding:4px 8px; border-radius:6px; font-size:11px; font-weight:bold; }
+        .btn-report-seen { border:none; background:#f59e0b; color:#fff; padding:6px 10px; border-radius:6px; font-size:11px; font-weight:bold; cursor:pointer; display:block; }
+        .row-report-pending td:first-child { box-shadow: inset 4px 0 0 #f59e0b; }
 
         .empty-msg { text-align: center; color: #888; padding: 20px; font-style: italic; }
         .loading-badge { font-size: 12px; font-weight: 600; color: #888; display: block; margin-top: 4px; }
@@ -167,6 +171,7 @@
                             <th>সিরিয়ালদাতা স্টাফ</th>
                             <th>ফি স্ট্যাটাস</th>
                             <th>ডাক্তার দেখা</th>
+                            <th>রিপোর্ট</th>
                         </tr>
                     </thead>
                     <tbody id="serial-list"></tbody>
@@ -183,7 +188,7 @@
     <!-- Firebase SDK -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-        import { getFirestore, collection, onSnapshot, doc, updateDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+        import { getFirestore, collection, onSnapshot, doc, updateDoc, query, where } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
         import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged, setPersistence, browserLocalPersistence } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
         const firebaseConfig = {
@@ -264,32 +269,62 @@
             return `${String(h).padStart(2, '0')}:00 ${ampm}`;
         }
 
+
+        // ব্রেক টাইম (শুধু ডাঃ শাফিউল আজমের জন্য): ১১:০০–১২:০০ এবং ২:০০–৩:০০ — এই দুই ঘন্টায় কোনো সিরিয়াল বসবে না।
+        // সিরিয়াল নাম্বার একটানাই চলবে, শুধু ঘন্টা দুটি বাদ দিয়ে পরের ঘন্টায় সময় বসবে।
+        const SHAIFUL_BREAK_HOURS = [11, 14];
+        function shaifulBlockStartHour(blockIndex) {
+            let h = 8, count = 0;
+            while (true) {
+                if (SHAIFUL_BREAK_HOURS.includes(h)) { h++; continue; }
+                if (count === blockIndex) return h;
+                count++; h++;
+            }
+        }
+        function shaifulBlockForHour(hour24) {
+            let b = 0;
+            for (let h = 8; h < hour24; h++) { if (!SHAIFUL_BREAK_HOURS.includes(h)) b++; }
+            return b;
+        }
+
         function getShaifulSlot(n){
-            n = parseInt(n, 10); 
+            n = parseInt(n, 10);
             if (!Number.isFinite(n) || n < 1) return null;
-            const block = Math.floor((n - 1) / 10);
-            const startHour = 8 + block;
+            // প্রতি ২০টি সিরিয়ালে ১ ঘন্টা, ব্রেকের ২ ঘন্টা বাদ দিয়ে (স্পেশাল নাম্বারের প্যাটার্ন ১০-ভিত্তিক, অপরিবর্তিত)
+            const block = Math.floor((n - 1) / 20);
+            const startHour = shaifulBlockStartHour(block);
             const endHour = startHour + 1;
-            const special = block === 0 ? (n <= 3 || n >= 9) : (n % 10 === 9 || n % 10 === 0);
-            
+            const tenBlock = Math.floor((n - 1) / 10);
+            const special = tenBlock === 0 ? (n <= 3 || n >= 9) : (n % 10 === 9 || n % 10 === 0);
             return {
                 special,
                 time: `${format12Hour(startHour)} - ${format12Hour(endHour)}`
             };
         }
 
-        onSnapshot(collection(db, "diagnostic_serials"), (snapshot) => {
+        // রিড কমানোর জন্য: পুরো কালেকশন নয়, শুধু নির্বাচিত তারিখের সিরিয়াল লাইভ শোনা হয়।
+        let serialsUnsub = null;
+        let serialsListenDate = null;
+        function listenSerialsForDate(dateStr) {
+            if (serialsUnsub && serialsListenDate === dateStr) return;
+            if (serialsUnsub) { serialsUnsub(); serialsUnsub = null; }
+            serialsListenDate = dateStr;
             serials = [];
-            snapshot.forEach((doc) => {
-                const data = doc.data();
-                if (data.doctor && data.doctor.includes("শাফিউল আজম")) {
-                    serials.push({ id: doc.id, ...data });
-                }
+            if (!dateStr) { renderTable(); return; }
+            serialsUnsub = onSnapshot(query(collection(db, "diagnostic_serials"), where('date', '==', dateStr)), (snapshot) => {
+                serials = [];
+                snapshot.forEach((doc) => {
+                    const data = doc.data();
+                    if (data.doctor && data.doctor.includes("শাফিউল আজম")) {
+                        serials.push({ id: doc.id, ...data });
+                    }
+                });
+                serials.sort((a, b) => (parseInt(a.serialNo, 10) || 0) - (parseInt(b.serialNo, 10) || 0));
+                updateInternetStatus();
+                renderTable();
             });
-            serials.sort((a, b) => (parseInt(a.serialNo, 10) || 0) - (parseInt(b.serialNo, 10) || 0));
-            updateInternetStatus();
-            renderTable();
-        });
+        }
+        listenSerialsForDate(document.getElementById('filter-date').value);
 
         window.updateInternetStatus = function() {
             const status = document.getElementById('online-status');
@@ -312,6 +347,19 @@
                 });
             } catch (error) {
                 console.error("Status update error:", error);
+            }
+        };
+
+        // এডমিন "রিপোর্ট আছে" চিহ্ন দিলে ডাক্তার রিপোর্ট দেখে এখানে ক্লিক করবেন
+        window.markReportSeen = async function(id) {
+            if (!navigator.onLine) return;
+            try {
+                await updateDoc(doc(db, "diagnostic_serials", id), {
+                    reportStatus: 'seen',
+                    reportSeenAt: new Date().toISOString()
+                });
+            } catch (error) {
+                console.error("Report status update error:", error);
             }
         };
 
@@ -354,6 +402,15 @@
                             <i class="fa-solid ${isVisited ? 'fa-check-double' : 'fa-check'}"></i> ${isVisited ? 'দেখা শেষ' : 'দেখা বাকি'}
                         </button>`;
 
+                    let reportCell = '<span style="color:#94a3b8;">-</span>';
+                    if (item.reportStatus === 'pending') {
+                        tr.classList.add('row-report-pending');
+                        reportCell = `<span class="rpt-badge-pending"><i class="fa-solid fa-file-medical"></i> রিপোর্ট দেখা বাকি</span>
+                            <button type="button" class="btn-report-seen" onclick="markReportSeen('${item.id}')"><i class="fa-solid fa-check"></i> রিপোর্ট দেখা হয়েছে</button>`;
+                    } else if (item.reportStatus === 'seen') {
+                        reportCell = `<span class="rpt-badge-seen"><i class="fa-solid fa-check-double"></i> রিপোর্ট দেখা হয়েছে</span>`;
+                    }
+
                     tr.innerHTML = `
                         <td><b>${item.serialNo}</b></td>
                         <td><span style="background: #e0f2fe; color: #0369a1; padding: 2px 6px; border-radius: 4px; font-weight: bold; font-size: 11px;">${item.timeSlot || slotInfo?.time || '-'}</span></td>
@@ -362,6 +419,7 @@
                         <td>${item.operator || '-'}</td>
                         <td>${feeDisplay}</td>
                         <td>${doctorActionBtn}</td>
+                        <td>${reportCell}</td>
                     `;
                     tbody.appendChild(tr);
                 }
@@ -375,7 +433,7 @@
             emptyMsg.style.display = total === 0 ? 'block' : 'none';
         };
 
-        document.getElementById('filter-date').addEventListener('change', renderTable);
+        document.getElementById('filter-date').addEventListener('change', function(){ listenSerialsForDate(this.value); });
 
         // PDF Print
         window.printReportPDF = function() {
